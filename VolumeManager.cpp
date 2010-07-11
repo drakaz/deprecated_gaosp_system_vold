@@ -806,10 +806,18 @@ int VolumeManager::shareVolume(const char *label, const char *method) {
              sizeof(nodepath), "/dev/block/vold/%d:%d",
              MAJOR(d), MINOR(d));
 
-    if ((fd = open("/sys/devices/platform/usb_mass_storage/lun0/file",
-                   O_WRONLY)) < 0) {
-        SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
-        return -1;
+    if ((!strcmp(label,"/mnt/sdcard")) || (!strcmp(label,"/sdcard"))) { 
+    	if ((fd = open("/sys/devices/platform/usb_mass_storage/lun0/file",
+        	           O_WRONLY)) < 0) {
+        	SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
+        	return -1;
+    	}
+    } else {
+	if ((fd = open("/sys/devices/platform/usb_mass_storage/lun1/file",
+                           O_WRONLY)) < 0) {
+                SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
+                return -1;
+        }
     }
 
     if (write(fd, nodepath, strlen(nodepath)) < 0) {
@@ -849,11 +857,17 @@ int VolumeManager::unshareVolume(const char *label, const char *method) {
              sizeof(nodepath), "/dev/block/vold/%d:%d",
              MAJOR(d), MINOR(d));
 
-    if ((fd = open("/sys/devices/platform/usb_mass_storage/lun0/file", O_WRONLY)) < 0) {
-        SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
-        return -1;
+    if ((!strcmp(label,"/mnt/sdcard")) || (!strcmp(label,"/sdcard"))) {
+    	if ((fd = open("/sys/devices/platform/usb_mass_storage/lun0/file", O_WRONLY)) < 0) {
+        	SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
+        	return -1;
+    	}
+    } else {
+	if ((fd = open("/sys/devices/platform/usb_mass_storage/lun1/file", O_WRONLY)) < 0) {
+                SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
+                return -1;
+        }
     }
-
     char ch = 0;
     if (write(fd, &ch, 1) < 0) {
         SLOGE("Unable to write to ums lunfile (%s)", strerror(errno));
