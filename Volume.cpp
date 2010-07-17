@@ -30,6 +30,8 @@
 
 #include <cutils/properties.h>
 
+#include <sys/system_properties.h>
+
 #include <diskconfig/diskconfig.h>
 
 #define LOG_TAG "Vold"
@@ -318,17 +320,23 @@ int Volume::mountVol() {
         errno = 0;
         setState(Volume::State_Checking);
 
-        if (Fat::check(devicePath)) {
-            if (errno == ENODATA) {
-                SLOGW("%s does not contain a FAT filesystem\n", devicePath);
-                continue;
-            }
-            errno = EIO;
-            /* Badness - abort the mount */
-            SLOGE("%s failed FS checks (%s)", devicePath, strerror(errno));
-            setState(Volume::State_Idle);
-            return -1;
-        }
+// drakaz : getprop to enable/disable check of fat fs
+        char checkfs_value[PROPERTY_VALUE_MAX];
+ 	property_get("sys.checkfs.fat", checkfs_value, "true");
+
+	if (strcmp(checkfs_value,"true") == 0) {
+        	if (Fat::check(devicePath)) {
+            		if (errno == ENODATA) {
+                		SLOGW("%s does not contain a FAT filesystem\n", devicePath);
+                		continue;
+            		}
+            	errno = EIO;
+            	/* Badness - abort the mount */
+            	SLOGE("%s failed FS checks (%s)", devicePath, strerror(errno));
+            	setState(Volume::State_Idle);
+            	return -1;
+        	}
+	}
 
         /*
          * Mount the device on our internal staging mountpoint so we can
