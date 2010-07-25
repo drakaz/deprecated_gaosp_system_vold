@@ -299,6 +299,14 @@ void DirectVolume::handlePartitionRemoved(const char *devpath, NetlinkEvent *evt
     }
 }
 
+int DirectVolume::getCurrentPartId() {
+	if (mPartIdx == -1) {	//TODO: should detect the correct partId if the vold.fstab config as auto mode.
+		return 0;
+	} else {
+		return mPartMinors[mPartIdx -1];
+	}
+}
+
 /*
  * Called from base to get a list of devicenodes for mounting
  */

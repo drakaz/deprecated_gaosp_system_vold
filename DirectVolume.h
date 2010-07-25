@@ -47,6 +47,8 @@ public:
     dev_t getDiskDevice();
     void handleVolumeShared();
     void handleVolumeUnshared();
+    
+    int getCurrentPartId();
 
 protected:
     int getDeviceNodes(dev_t *devs, int max);

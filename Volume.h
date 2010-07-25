@@ -71,6 +71,7 @@ public:
     virtual dev_t getDiskDevice();
     virtual void handleVolumeShared();
     virtual void handleVolumeUnshared();
+    virtual int getCurrentPartId();
 
     void setDebug(bool enable);
 

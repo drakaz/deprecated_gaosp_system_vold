@@ -147,6 +147,10 @@ void Volume::handleVolumeShared() {
 void Volume::handleVolumeUnshared() {
 }
 
+int Volume::getCurrentPartId() {
+	return -1;
+}
+
 int Volume::handleBlockEvent(NetlinkEvent *evt) {
     errno = ENOSYS;
     return -1;
@@ -215,13 +219,13 @@ int Volume::formatVol() {
     }
     setState(Volume::State_Formatting);
 
-    if (initializeMbr(devicePath)) {
+    if (initializeMbr(devicePath)) {	//Is this need for sdcard_int ?
         SLOGE("Failed to initialize MBR (%s)", strerror(errno));
         goto err;
     }
 
     sprintf(devicePath, "/dev/block/vold/%d:%d",
-            MAJOR(partNode), MINOR(partNode));
+            MAJOR(partNode), NINOR(partNode));	//TOOD: this will cause a error in galaxy.
 
     if (Fat::format(devicePath, 0)) {
         SLOGE("Failed to format (%s)", strerror(errno));

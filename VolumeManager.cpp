@@ -804,7 +804,7 @@ int VolumeManager::shareVolume(const char *label, const char *method) {
     char nodepath[255];
     snprintf(nodepath,
              sizeof(nodepath), "/dev/block/vold/%d:%d",
-             MAJOR(d), MINOR(d));
+             MAJOR(d), v->getCurrentPartId());		//we use the correct part id that has config in vold.fstab
 
     if ((!strcmp(label,"/mnt/sdcard")) || (!strcmp(label,"/sdcard"))) { 
     	if ((fd = open("/sys/devices/platform/usb_mass_storage/lun0/file",
