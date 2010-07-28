@@ -325,7 +325,36 @@ int Volume::mountVol() {
         	}
 	}
 
-        /*
+       /* drakaz :
+	* Mount external sdcard by hand on /mnt/sdcard2
+	* Create /sdcard/sd dir and mount again external sdcard on it
+        * Only if the mount point is the external sdcard
+	* Do not create BindMouns on external SD
+        */
+       if (strcmp(getMountpoint(), "/mnt/sdcard2") == 0) {
+
+	    unsigned long flags = MS_NODEV | MS_NOEXEC | MS_NOSUID | MS_DIRSYNC;
+	    char mountData[255];
+            sprintf(mountData,"utf8,uid=%d,gid=%d,fmask=%o,dmask=%o,shortname=mixed",1000, 1015, 0702, 0702);
+
+	    if (mount(devicePath, getMountpoint(), "vfat", flags, mountData)) {
+                SLOGE("Error while mouting %s -> %s", devicePath, getMountpoint());
+            } else {
+                SLOGE("%s sucessfully mounted on %s", devicePath, getMountpoint());
+            }
+
+            SLOGE("Duplicate mount of external sd on /mnt/sdcard/sd for compatibility");
+            mkdir("/mnt/sdcard/sd", 0755);
+
+	    if (mount(devicePath, "/mnt/sdcard/sd", "vfat", flags, mountData)) {
+		SLOGE("Error while mouting /mnt/sdcard2 -> /mnt/sdcard/sd");
+	    } else {
+		SLOGE("/mnt/sdcard2 sucessfully mounted on /mnt/sdcard/sd");
+	    }
+
+	} else { 
+
+	/*
          * Mount the device on our internal staging mountpoint so we can
          * muck with it before exposing it to non priviledged users.
          */
@@ -339,23 +368,25 @@ int Volume::mountVol() {
 
         protectFromAutorunStupidity();
 
-        if (createBindMounts()) {
-            SLOGE("Failed to create bindmounts (%s)", strerror(errno));
-            umount("/mnt/secure/staging");
-            setState(Volume::State_Idle);
-            return -1;
-        }
+    
+        	if (createBindMounts()) {
+            		SLOGE("Failed to create bindmounts (%s)", strerror(errno));
+           		 umount("/mnt/secure/staging");
+            		setState(Volume::State_Idle);
+            		return -1;
+        	}
 
         /*
          * Now that the bindmount trickery is done, atomically move the
          * whole subtree to expose it to non priviledged users.
          */
-        if (doMoveMount("/mnt/secure/staging", getMountpoint(), false)) {
-            SLOGE("Failed to move mount (%s)", strerror(errno));
-            umount("/mnt/secure/staging");
-            setState(Volume::State_Idle);
-            return -1;
-        }
+        	if (doMoveMount("/mnt/secure/staging", getMountpoint(), false)) {
+            		SLOGE("Failed to move mount (%s)", strerror(errno));
+            		umount("/mnt/secure/staging");
+            		setState(Volume::State_Idle);
+            		return -1;
+        	}
+	}
         setState(Volume::State_Mounted);
         mCurrentlyMountedKdev = deviceNodes[i];
         return 0;
@@ -510,44 +541,52 @@ int Volume::unmountVol(bool force) {
     setState(Volume::State_Unmounting);
     usleep(1000 * 1000); // Give the framework some time to react
 
-    /*
-     * First move the mountpoint back to our internal staging point
-     * so nobody else can muck with it while we work.
-     */
-    if (doMoveMount(getMountpoint(), SEC_STGDIR, force)) {
-        SLOGE("Failed to move mount %s => %s (%s)", getMountpoint(), SEC_STGDIR, strerror(errno));
-        setState(Volume::State_Mounted);
-        return -1;
-    }
+    /* Umount sec dir only on internal sdcard */
+    if (strcmp(getMountpoint(), "/mnt/sdcard2") == 0) {
+	umount("/mnt/sdcard/sd");
+	umount("/mnt/sdcard2");
+    } else {
+	umount("/mnt/sdcard/sd");
+    	/*
+    	 * First move the mountpoint back to our internal staging point
+     	 * so nobody else can muck with it while we work.
+     	*/
+    	if (doMoveMount(getMountpoint(), SEC_STGDIR, force)) {
+        	SLOGE("Failed to move mount %s => %s (%s)", getMountpoint(), SEC_STGDIR, strerror(errno));
+        	setState(Volume::State_Mounted);
+        	return -1;
+    	}	
+    
+	protectFromAutorunStupidity();
 
-    protectFromAutorunStupidity();
+    	/*
+    	 * Unmount the tmpfs which was obscuring the asec image directory
+     	* from non root users
+     	*/
 
-    /*
-     * Unmount the tmpfs which was obscuring the asec image directory
-     * from non root users
-     */
+    	if (doUnmount(Volume::SEC_STG_SECIMGDIR, force)) {
+        	SLOGE("Failed to unmount tmpfs on %s (%s)", SEC_STG_SECIMGDIR, strerror(errno));
+        	goto fail_republish;
+    	}
 
-    if (doUnmount(Volume::SEC_STG_SECIMGDIR, force)) {
-        SLOGE("Failed to unmount tmpfs on %s (%s)", SEC_STG_SECIMGDIR, strerror(errno));
-        goto fail_republish;
-    }
+    	/*
+     	* Remove the bindmount we were using to keep a reference to
+     	* the previously obscured directory.
+     	*/
 
-    /*
-     * Remove the bindmount we were using to keep a reference to
-     * the previously obscured directory.
-     */
+    	if (doUnmount(Volume::SEC_ASECDIR, force)) {
+        	SLOGE("Failed to remove bindmount on %s (%s)", SEC_ASECDIR, strerror(errno));
+        	goto fail_remount_tmpfs;
+    	}
+    
 
-    if (doUnmount(Volume::SEC_ASECDIR, force)) {
-        SLOGE("Failed to remove bindmount on %s (%s)", SEC_ASECDIR, strerror(errno));
-        goto fail_remount_tmpfs;
-    }
-
-    /*
-     * Finally, unmount the actual block device from the staging dir
-     */
-    if (doUnmount(Volume::SEC_STGDIR, force)) {
-        SLOGE("Failed to unmount %s (%s)", SEC_STGDIR, strerror(errno));
-        goto fail_recreate_bindmount;
+        /*
+         * Finally, unmount the actual block device from the staging dir
+         */
+        if (doUnmount(Volume::SEC_STGDIR, force)) {
+        	SLOGE("Failed to unmount %s (%s)", SEC_STGDIR, strerror(errno));
+        	goto fail_recreate_bindmount;
+        }
     }
 
     SLOGI("%s unmounted sucessfully", getMountpoint());
