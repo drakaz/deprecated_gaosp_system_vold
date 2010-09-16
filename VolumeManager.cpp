@@ -804,7 +804,7 @@ int VolumeManager::shareVolume(const char *label, const char *method) {
     char nodepath[255];
     snprintf(nodepath,
              sizeof(nodepath), "/dev/block/vold/%d:%d",
-             MAJOR(d), MINOR(d));
+             MAJOR(d), v->getCurrentPartId());		//we use the correct part id that has config in vold.fstab
 
     // TODO: Currently only two mounts are supported, defaulting
     // /mnt/sdcard to lun0 and anything else to lun1. Fix this.

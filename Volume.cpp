@@ -225,7 +225,7 @@ int Volume::formatVol() {
     }
 
     sprintf(devicePath, "/dev/block/vold/%d:%d",
-            MAJOR(partNode), MINOR(partNode));	//TOOD: this will cause a error in galaxy.
+            MAJOR(partNode), NINOR(partNode));	//TOOD: this will cause a error in galaxy.
 
     if (Fat::format(devicePath, 0)) {
         SLOGE("Failed to format (%s)", strerror(errno));
