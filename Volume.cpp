@@ -337,11 +337,12 @@ int Volume::mountVol() {
 	    char mountData[255];
             sprintf(mountData,"utf8,uid=%d,gid=%d,fmask=%o,dmask=%o,shortname=mixed",1000, 1015, 0702, 0702);
 
+	    /* Disable useless ext sd mouting on sd-ext to avoid duplicate media
 	    if (mount(devicePath, getMountpoint(), "vfat", flags, mountData)) {
                 SLOGE("Error while mouting %s -> %s", devicePath, getMountpoint());
             } else {
                 SLOGE("%s sucessfully mounted on %s", devicePath, getMountpoint());
-            }
+            } */
 
             SLOGE("Duplicate mount of external sd on /mnt/sdcard/sd for compatibility");
             mkdir("/mnt/sdcard/sd", 0755);
