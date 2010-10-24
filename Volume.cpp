@@ -325,32 +325,31 @@ int Volume::mountVol() {
         	}
 	}
 
-       /* drakaz :
-	* Mount external sdcard by hand on /mnt/sd-ext
+    /* drakaz :
+	* Mount external sdcard by hand on /mnt/sdcard2
 	* Create /sdcard/sd dir and mount again external sdcard on it
-        * Only if the mount point is the external sdcard
+    * Only if the mount point is the external sdcard
 	* Do not create BindMouns on external SD
-        */
-       if (strcmp(getMountpoint(), "/mnt/sd-ext") == 0) {
+    */
+       if (strcmp(getMountpoint(), "/mnt/sdcard2") == 0) {
 
 	    unsigned long flags = MS_NODEV | MS_NOEXEC | MS_NOSUID | MS_DIRSYNC;
 	    char mountData[255];
             sprintf(mountData,"utf8,uid=%d,gid=%d,fmask=%o,dmask=%o,shortname=mixed",1000, 1015, 0702, 0702);
 
-	    /* Disable useless ext sd mouting on sd-ext to avoid duplicate media
 	    if (mount(devicePath, getMountpoint(), "vfat", flags, mountData)) {
                 SLOGE("Error while mouting %s -> %s", devicePath, getMountpoint());
             } else {
                 SLOGE("%s sucessfully mounted on %s", devicePath, getMountpoint());
-            } */
+            }
 
             SLOGE("Duplicate mount of external sd on /mnt/sdcard/sd for compatibility");
             mkdir("/mnt/sdcard/sd", 0755);
 
 	    if (mount(devicePath, "/mnt/sdcard/sd", "vfat", flags, mountData)) {
-		SLOGE("Error while mouting /mnt/sd-ext -> /mnt/sdcard/sd");
+		SLOGE("Error while mouting /mnt/sdcard2 -> /mnt/sdcard/sd");
 	    } else {
-		SLOGE("/mnt/sd-ext sucessfully mounted on /mnt/sdcard/sd");
+		SLOGE("/mnt/sdcard2 sucessfully mounted on /mnt/sdcard/sd");
 	    }
 
 	} else { 
@@ -543,9 +542,9 @@ int Volume::unmountVol(bool force) {
     usleep(1000 * 1000); // Give the framework some time to react
 
     /* Umount sec dir only on internal sdcard */
-    if (strcmp(getMountpoint(), "/mnt/sd-ext") == 0) {
+    if (strcmp(getMountpoint(), "/mnt/sdcard2") == 0) {
 	umount("/mnt/sdcard/sd");
-	umount("/mnt/sd-ext");
+	umount("/mnt/sdcard2");
     } else {
 	umount("/mnt/sdcard/sd");
     	/*
