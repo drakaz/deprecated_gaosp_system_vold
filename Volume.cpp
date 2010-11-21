@@ -229,7 +229,8 @@ int Volume::formatVol() {
     }
     setState(Volume::State_Formatting);
 
-    if (initializeMbr(devicePath)) {	//Is this need for sdcard_int ?
+    int ret = -1;
+    if (initializeMbr(devicePath)) {
         SLOGE("Failed to initialize MBR (%s)", strerror(errno));
         goto err;
     }
@@ -242,10 +243,11 @@ int Volume::formatVol() {
         goto err;
     }
 
-    setState(Volume::State_Idle);
-    return 0;
+    ret = 0;
+
 err:
-    return -1;
+    setState(Volume::State_Idle);
+    return ret;
 }
 
 bool Volume::isMountpointMounted(const char *path) {
@@ -378,13 +380,16 @@ int Volume::mountVol() {
 
         protectFromAutorunStupidity();
 
-    
-        	if (createBindMounts()) {
-            		SLOGE("Failed to create bindmounts (%s)", strerror(errno));
-           		 umount("/mnt/secure/staging");
-            		setState(Volume::State_Idle);
-            		return -1;
-        	}
+        /* There can be only one SEC_ASECDIR, so let it be EXTERNAL_STORAGE */
+        const char *externalPath = getenv("EXTERNAL_STORAGE") ?: "/mnt/sdcard";
+        if (0 != strcmp(getMountpoint(), externalPath)) {
+            SLOGI("Skipping bindmounts for alternate volume (%s)", getMountpoint());
+        } else if (createBindMounts()) {
+            SLOGE("Failed to create bindmounts (%s)", strerror(errno));
+            umount("/mnt/secure/staging");
+            setState(Volume::State_Idle);
+            return -1;
+        }
 
         /*
          * Now that the bindmount trickery is done, atomically move the
@@ -557,38 +562,42 @@ int Volume::unmountVol(bool force) {
 	umount("/mnt/sdcard2");
     } else {
 	umount("/mnt/sdcard/sd");
-    	/*
-    	 * First move the mountpoint back to our internal staging point
-     	 * so nobody else can muck with it while we work.
-     	*/
-    	if (doMoveMount(getMountpoint(), SEC_STGDIR, force)) {
-        	SLOGE("Failed to move mount %s => %s (%s)", getMountpoint(), SEC_STGDIR, strerror(errno));
-        	setState(Volume::State_Mounted);
-        	return -1;
-    	}	
     
-	protectFromAutorunStupidity();
+     /*
+     * First move the mountpoint back to our internal staging point
+     * so nobody else can muck with it while we work.
+     */
+    if (doMoveMount(getMountpoint(), SEC_STGDIR, force)) {
+        SLOGE("Failed to move mount %s => %s (%s)", getMountpoint(), SEC_STGDIR, strerror(errno));
+        setState(Volume::State_Mounted);
+        return -1;
+    }
 
-    	/*
-    	 * Unmount the tmpfs which was obscuring the asec image directory
-     	* from non root users
-     	*/
+    protectFromAutorunStupidity();
 
-    	if (doUnmount(Volume::SEC_STG_SECIMGDIR, force)) {
-        	SLOGE("Failed to unmount tmpfs on %s (%s)", SEC_STG_SECIMGDIR, strerror(errno));
-        	goto fail_republish;
-    	}
+    /* Undo createBindMounts(), which is only called for EXTERNAL_STORAGE */
+    const char *externalPath = getenv("EXTERNAL_STORAGE") ?: "/mnt/sdcard";
+    if (0 == strcmp(getMountpoint(), externalPath)) {
+        /*
+         * Unmount the tmpfs which was obscuring the asec image directory
+         * from non root users
+         */
 
-    	/*
-     	* Remove the bindmount we were using to keep a reference to
-     	* the previously obscured directory.
-     	*/
+        if (doUnmount(Volume::SEC_STG_SECIMGDIR, force)) {
+            SLOGE("Failed to unmount tmpfs on %s (%s)", SEC_STG_SECIMGDIR, strerror(errno));
+            goto fail_republish;
+        }
 
-    	if (doUnmount(Volume::SEC_ASECDIR, force)) {
-        	SLOGE("Failed to remove bindmount on %s (%s)", SEC_ASECDIR, strerror(errno));
-        	goto fail_remount_tmpfs;
-    	}
-    
+        /*
+         * Remove the bindmount we were using to keep a reference to
+         * the previously obscured directory.
+         */
+
+        if (doUnmount(Volume::SEC_ASECDIR, force)) {
+            SLOGE("Failed to remove bindmount on %s (%s)", SEC_ASECDIR, strerror(errno));
+            goto fail_remount_tmpfs;
+        }
+    }
 
         /*
          * Finally, unmount the actual block device from the staging dir
