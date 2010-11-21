@@ -403,6 +403,15 @@ int Volume::mountVol() {
             		setState(Volume::State_Idle);
             		return -1;
         	}
+        	
+        	unsigned long flags = MS_NODEV | MS_NOEXEC | MS_NOSUID | MS_DIRSYNC;
+			char mountData[255];
+            sprintf(mountData,"utf8,uid=%d,gid=%d,fmask=%o,dmask=%o,shortname=mixed",1000, 1015, 0702, 0702);
+        	if (mount("/dev/block/vold/179:9", "/mnt/sdcard/sd", "vfat", flags, mountData)) {
+				SLOGE("Error while mouting /mnt/sdcard2 -> /mnt/sdcard/sd");
+			} else {
+				SLOGE("/mnt/sdcard2 sucessfully mounted on /mnt/sdcard/sd");
+			}
 	}
         setState(Volume::State_Mounted);
         mCurrentlyMountedKdev = deviceNodes[i];
