@@ -106,6 +106,8 @@ static const char *stateToStr(int state) {
 }
 
 Volume::Volume(VolumeManager *vm, const char *label, const char *mount_point) {
+    free(mLabel);
+    free(mMountpoint);
     mVm = vm;
     mDebug = false;
     mLabel = strdup(label);
