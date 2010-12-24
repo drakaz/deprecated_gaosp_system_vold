@@ -801,29 +801,28 @@ int VolumeManager::shareVolume(const char *label, const char *method) {
     }
 
     int fd;
+    int fd2;
     char nodepath[255];
     snprintf(nodepath,
              sizeof(nodepath), "/dev/block/vold/%d:%d",
              MAJOR(d), v->getCurrentPartId());		//we use the correct part id that has config in vold.fstab
 
-    // TODO: Currently only two mounts are supported, defaulting
-    // /mnt/sdcard to lun0 and anything else to lun1. Fix this.
-    if (0 == strcmp(label, "/mnt/sdcard")) {
-        if ((fd = open("/sys/devices/platform/usb_mass_storage/lun0/file",
-                       O_WRONLY)) < 0) {
-            SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
-            return -1;
-        }
+	if ((fd = open("/sys/devices/platform/usb_mass_storage/lun0/file", O_WRONLY)) < 0) {
+		SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
+        return -1;
     }
-    else {
-        if ((fd = open("/sys/devices/platform/usb_mass_storage/lun1/file",
-                       O_WRONLY)) < 0) {
-            SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
-            return -1;
-        }
+    if ((fd2 = open("/sys/devices/platform/usb_mass_storage/lun1/file", O_WRONLY)) < 0) {
+		SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
+		return -1;
     }
 
     if (write(fd, nodepath, strlen(nodepath)) < 0) {
+        SLOGE("Unable to write to ums lunfile (%s)", strerror(errno));
+        close(fd);
+        return -1;
+    }
+    // drakaz : force external sdcard in ums mode
+    if (write(fd2, "/dev/block/mmcblk1p1", strlen(nodepath)) < 0) {
         SLOGE("Unable to write to ums lunfile (%s)", strerror(errno));
         close(fd);
         return -1;
@@ -853,22 +852,25 @@ int VolumeManager::unshareVolume(const char *label, const char *method) {
     }
 
     int fd;
+    int fd2;
     
-    // /mnt/sdcard to lun0 and anything else to lun1. Fix this.
-    if (0 == strcmp(label, "/mnt/sdcard")) {
         if ((fd = open("/sys/devices/platform/usb_mass_storage/lun0/file", O_WRONLY)) < 0) {
             SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
             return -1;
         }
-    }
-    else {
-        if ((fd = open("/sys/devices/platform/usb_mass_storage/lun1/file", O_WRONLY)) < 0) {
+        if ((fd2 = open("/sys/devices/platform/usb_mass_storage/lun1/file", O_WRONLY)) < 0) {
             SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
             return -1;
         }
-    }
+        
     char ch = 0;
     if (write(fd, &ch, 1) < 0) {
+        SLOGE("Unable to write to ums lunfile (%s)", strerror(errno));
+        close(fd);
+        return -1;
+    }
+    // Disable ums on external sdcard
+    if (write(fd2, &ch, 1) < 0) {
         SLOGE("Unable to write to ums lunfile (%s)", strerror(errno));
         close(fd);
         return -1;
