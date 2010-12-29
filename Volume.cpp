@@ -391,7 +391,8 @@ int Volume::mountVol() {
 			}
 			SLOGE("Duplicate mount of external sd on /mnt/sdcard/sd for compatibility");
 			mkdir("/mnt/sdcard/sd", 0755);
-			if (mount("/dev/block/mmcblk1p1", "/mnt/sdcard/sd", "vfat", flags, mountData)) {
+			// Bind mount for media scanning
+			if (mount("/mnt/sdcard2", "/mnt/sdcard/sd", "vfat", MS_BIND, NULL)) {
 				SLOGE("Error while mouting /mnt/sdcard2 -> /mnt/sdcard/sd");
 			} else {
 				SLOGE("/mnt/sdcard2 sucessfully mounted on /mnt/sdcard/sd");

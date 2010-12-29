@@ -811,22 +811,24 @@ int VolumeManager::shareVolume(const char *label, const char *method) {
 		SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
         return -1;
     }
-    if ((fd2 = open("/sys/devices/platform/usb_mass_storage/lun1/file", O_WRONLY)) < 0) {
-		SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
-		return -1;
-    }
-
-    if (write(fd, nodepath, strlen(nodepath)) < 0) {
+      if (write(fd, nodepath, strlen(nodepath)) < 0) {
         SLOGE("Unable to write to ums lunfile (%s)", strerror(errno));
         close(fd);
         return -1;
     }
-    // drakaz : force external sdcard in ums mode
-    if (write(fd2, "/dev/block/mmcblk1p1", strlen(nodepath)) < 0) {
+    
+    // drakaz : force external sdcard in ums mode if exist
+    if (FILE * file = fopen("/dev/block/mmcblk1p1", "r")) {
+		if ((fd2 = open("/sys/devices/platform/usb_mass_storage/lun1/file", O_WRONLY)) < 0) {
+			SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
+			return -1;
+		}
+		if (write(fd2, "/dev/block/mmcblk1p1", strlen(nodepath)) < 0) {
         SLOGE("Unable to write to ums lunfile (%s)", strerror(errno));
         close(fd);
         return -1;
     }
+	}
 
     close(fd);
     v->handleVolumeShared();
