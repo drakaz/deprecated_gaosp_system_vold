@@ -340,35 +340,6 @@ int Volume::mountVol() {
         	}
 	}
 
-       /* drakaz :
-	* Mount external sdcard by hand on /mnt/sdcard2
-	* Create /sdcard/sd dir and mount again external sdcard on it
-        * Only if the mount point is the external sdcard
-	* Do not create BindMouns on external SD
-        */
-       if (strcmp(getMountpoint(), "/mnt/sdcard2") == 0) {
-
-	    unsigned long flags = MS_NODEV | MS_NOEXEC | MS_NOSUID | MS_DIRSYNC;
-	    char mountData[255];
-            sprintf(mountData,"utf8,uid=%d,gid=%d,fmask=%o,dmask=%o,shortname=mixed",1000, 1015, 0702, 0702);
-
-	    if (mount(devicePath, getMountpoint(), "vfat", flags, mountData)) {
-                SLOGE("Error while mouting %s -> %s", devicePath, getMountpoint());
-            } else {
-                SLOGE("%s sucessfully mounted on %s", devicePath, getMountpoint());
-            }
-
-            SLOGE("Duplicate mount of external sd on /mnt/sdcard/sd for compatibility");
-            mkdir("/mnt/sdcard/sd", 0755);
-
-	    if (mount(devicePath, "/mnt/sdcard/sd", "vfat", flags, mountData)) {
-		SLOGE("Error while mouting /mnt/sdcard2 -> /mnt/sdcard/sd");
-	    } else {
-		SLOGE("/mnt/sdcard2 sucessfully mounted on /mnt/sdcard/sd");
-	    }
-
-	} else { 
-
 	/*
          * Mount the device on our internal staging mountpoint so we can
          * muck with it before exposing it to non priviledged users.
@@ -406,17 +377,31 @@ int Volume::mountVol() {
             		return -1;
         	}
         	
-        	unsigned long flags = MS_NODEV | MS_NOEXEC | MS_NOSUID | MS_DIRSYNC;
+        setState(Volume::State_Mounted);
+        mCurrentlyMountedKdev = deviceNodes[i];
+        
+        // drakaz : mouting external sd without vold.fstab if external sd exist
+        if (FILE * file = fopen("/dev/block/mmcblk1p1", "r")) {
+			unsigned long flags = MS_NODEV | MS_NOEXEC | MS_NOSUID | MS_DIRSYNC;
 			char mountData[255];
-            sprintf(mountData,"utf8,uid=%d,gid=%d,fmask=%o,dmask=%o,shortname=mixed",1000, 1015, 0702, 0702);
-        	if (mount("/dev/block/vold/179:9", "/mnt/sdcard/sd", "vfat", flags, mountData)) {
+			sprintf(mountData,"utf8,uid=%d,gid=%d,fmask=%o,dmask=%o,shortname=mixed",1000, 1015, 0702, 0702);
+
+			if (mount("/dev/block/mmcblk1p1", "/mnt/sdcard2", "vfat", flags, mountData)) {
+				SLOGE("Error while mouting %s -> %s", "/dev/block/mmcblk1p1", "/mnt/sdcard2");
+			} else {
+				SLOGE("%s sucessfully mounted on %s", "/dev/block/mmcblk1p1", "/mnt/sdcard2");
+			}
+			SLOGE("Duplicate mount of external sd on /mnt/sdcard/sd for compatibility");
+			mkdir("/mnt/sdcard/sd", 0755);
+			if (mount("/dev/block/mmcblk1p1", "/mnt/sdcard/sd", "vfat", flags, mountData)) {
 				SLOGE("Error while mouting /mnt/sdcard2 -> /mnt/sdcard/sd");
 			} else {
 				SLOGE("/mnt/sdcard2 sucessfully mounted on /mnt/sdcard/sd");
 			}
-	}
-        setState(Volume::State_Mounted);
-        mCurrentlyMountedKdev = deviceNodes[i];
+		} else {
+			SLOGE("No external sdcard detected. Skipping mount.");
+		}
+			
         return 0;
     }
 
@@ -569,14 +554,13 @@ int Volume::unmountVol(bool force) {
     setState(Volume::State_Unmounting);
     usleep(1000 * 1000); // Give the framework some time to react
 
-    /* Umount sec dir only on internal sdcard */
-    if (strcmp(getMountpoint(), "/mnt/sdcard2") == 0) {
-	umount("/mnt/sdcard/sd");
-	umount("/mnt/sdcard2");
-    } else {
-	umount("/mnt/sdcard/sd");
-	
-    /*
+	// Umount external sdcard if exist
+	if (FILE * file = fopen("/dev/block/mmcblk1p1", "r")) {
+		umount("/mnt/sdcard/sd");
+		umount("/mnt/sdcard2");
+	}	
+    
+     /*
      * First move the mountpoint back to our internal staging point
      * so nobody else can muck with it while we work.
      */
@@ -619,7 +603,6 @@ int Volume::unmountVol(bool force) {
         	SLOGE("Failed to unmount %s (%s)", SEC_STGDIR, strerror(errno));
         	goto fail_recreate_bindmount;
         }
-    }
 
     SLOGI("%s unmounted sucessfully", getMountpoint());
 
