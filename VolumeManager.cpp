@@ -1096,9 +1096,10 @@ int VolumeManager::shareVolume(const char *label, const char *method) {
     int fd;
     int fd2;
     char nodepath[255];
-    snprintf(nodepath,
+	snprintf(nodepath,
              sizeof(nodepath), "/dev/block/vold/%d:%d",
-             MAJOR(d), v->getCurrentPartId());		//we use the correct part id that has config in vold.fstab
+             MAJOR(d), MINOR(d));
+
 
 	if ((fd = open("/sys/devices/platform/usb_mass_storage/lun0/file", O_WRONLY)) < 0) {
 		SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
@@ -1162,6 +1163,7 @@ int VolumeManager::unshareVolume(const char *label, const char *method) {
     }
 
     int fd;
+    int fd2;
 
     // /mnt/sdcard to lun0 and anything else to lun1. Fix this.
     if (0 == strcmp(label, "/mnt/sdcard")) {
