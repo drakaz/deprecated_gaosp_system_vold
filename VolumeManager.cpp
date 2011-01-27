@@ -278,12 +278,21 @@ int VolumeManager::listVolumes(SocketClient *cli) {
 int VolumeManager::formatVolume(const char *label) {
     Volume *v = lookupVolume(label);
 
-    if (!v) {
-        errno = ENOENT;
-        return -1;
-    }
+	if (!strcmp(label, "/mnt/sdcard2")) {
+		SLOGE("Formatting /mnt/sdcard2");
+		if (Fat::format("/dev/block/mmcblk1p1", 0)) {
+			SLOGE("Failed to format (%s)", strerror(errno));
+		}
+		return 0;
+	} else {
 
-    return v->formatVol();
+		if (!v) {
+			errno = ENOENT;
+			return -1;
+		}
+
+		return v->formatVol();
+		}
 }
 
 int VolumeManager::getObbMountPath(const char *sourceFile, char *mountPath, int mountPathLen) {
