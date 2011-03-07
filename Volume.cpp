@@ -237,6 +237,15 @@ int Volume::formatVol() {
     sprintf(devicePath, "/dev/block/vold/%d:%d",
             MAJOR(partNode), MINOR(partNode));
 
+#ifdef VOLD_EMMC_SHARES_DEV_MAJOR
+    // If emmc and sdcard share dev major number, vold may pick
+    // incorrectly based on partition nodes alone, formatting
+    // the wrong device. Use device nodes instead.
+    dev_t deviceNodes;
+    getDeviceNodes((dev_t *) &deviceNodes, 1);
+    sprintf(devicePath, "/dev/block/vold/%d:%d", MAJOR(deviceNodes), MINOR(deviceNodes));
+#endif
+
     if (mDebug) {
         SLOGI("Formatting volume %s (%s)", getLabel(), devicePath);
     }
@@ -340,14 +349,14 @@ int Volume::mountVol() {
         	}
 	}
 
-	/*
+	 /*
          * Mount the device on our internal staging mountpoint so we can
          * muck with it before exposing it to non priviledged users.
          */
         errno = 0;
         if (Fat::doMount(devicePath, "/mnt/secure/staging", false, false, false,
                 1000, 1015, 0702, true)) {
-            SLOGE("%s failed to mount via VFAT (%s)\n", devicePath, strerror(errno));
+            SLOGE("%s failed to mount (%s)\n", devicePath, strerror(errno));
             continue;
         }
 
