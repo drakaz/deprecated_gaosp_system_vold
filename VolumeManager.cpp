@@ -1109,22 +1109,15 @@ int VolumeManager::shareVolume(const char *label, const char *method) {
              sizeof(nodepath), "/dev/block/vold/%d:%d",
              MAJOR(d), MINOR(d));
 
-    // TODO: Currently only two mounts are supported, defaulting
-    // /mnt/sdcard to lun0 and anything else to lun1. Fix this.
-    if (0 == strcmp(label, "/mnt/sdcard")) {
-        if ((fd = open("/sys/devices/platform/usb_mass_storage/lun0/file",
-                       O_WRONLY)) < 0) {
-            SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
-            return -1;
-        }
+	if ((fd = open("/sys/devices/platform/usb_mass_storage/lun0/file", O_WRONLY)) < 0) {
+		SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
+        return -1;
     }
-    else {
-        if ((fd = open("/sys/devices/platform/usb_mass_storage/lun1/file",
-                       O_WRONLY)) < 0) {
-            SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
-            return -1;
-        }
-    }
+    if (write(fd, nodepath, strlen(nodepath)) < 0) {
+        SLOGE("Unable to write to ums lunfile (%s)", strerror(errno));
+        close(fd);
+        return -1;
+    } 
     
     // drakaz : force external sdcard in ums mode if exist
     if (FILE * file = fopen("/dev/block/mmcblk1p1", "r")) {
