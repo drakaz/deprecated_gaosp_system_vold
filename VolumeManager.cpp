@@ -1179,15 +1179,12 @@ int VolumeManager::unshareVolume(const char *label, const char *method) {
             SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
             return -1;
         }
-    }
-    else {
-        if ((fd = open("/sys/devices/platform/usb_mass_storage/lun1/file", O_WRONLY)) < 0) {
+        if ((fd2 = open("/sys/devices/platform/usb_mass_storage/lun1/file", O_WRONLY)) < 0) {
             SLOGE("Unable to open ums lunfile (%s)", strerror(errno));
             return -1;
         }
-
     }
-        
+
     char ch = 0;
     if (write(fd, &ch, 1) < 0) {
         SLOGE("Unable to write to ums lunfile (%s)", strerror(errno));
@@ -1197,7 +1194,7 @@ int VolumeManager::unshareVolume(const char *label, const char *method) {
     // Disable ums on external sdcard
     if (write(fd2, &ch, 1) < 0) {
         SLOGE("Unable to write to ums lunfile (%s)", strerror(errno));
-        close(fd);
+        close(fd2);
         return -1;
     }
 
